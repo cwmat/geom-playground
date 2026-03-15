@@ -1,4 +1,4 @@
-import type { Feature, Geometry } from "geojson";
+import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { InputFormat } from "@/types/geometry";
 import { arcgisToGeoJSON, geojsonToArcGIS } from "@terraformer/arcgis";
 import {
@@ -19,36 +19,49 @@ function normalizeToFeature(input: Geometry | Feature): Feature {
   };
 }
 
-export function toGeoJSON(text: string, format: InputFormat): Feature {
+function wrapAsCollection(features: Feature[]): FeatureCollection {
+  return { type: "FeatureCollection", features };
+}
+
+/**
+ * Merge all geometries from a FeatureCollection into a single GeometryCollection.
+ * If there's only one feature, returns its geometry directly.
+ */
+export function mergeGeometries(fc: FeatureCollection): Geometry {
+  const geometries = fc.features.map((f) => f.geometry);
+  if (geometries.length === 1) return geometries[0];
+  return { type: "GeometryCollection", geometries };
+}
+
+export function toGeoJSON(text: string, format: InputFormat): FeatureCollection {
   const trimmed = text.trim();
 
   switch (format) {
     case "wkt": {
       const geometry = wktToGeoJSON(trimmed);
-      return normalizeToFeature(geometry);
+      return wrapAsCollection([normalizeToFeature(geometry)]);
     }
 
     case "wkb": {
       const geometry = wkbHexToGeoJSON(trimmed);
-      return normalizeToFeature(geometry);
+      return wrapAsCollection([normalizeToFeature(geometry)]);
     }
 
     case "geojson": {
       const parsed = JSON.parse(trimmed);
       if (parsed.type === "FeatureCollection") {
-        // Take the first feature
-        if (parsed.features?.length > 0) {
-          return parsed.features[0] as Feature;
+        if (!parsed.features?.length) {
+          throw new Error("Empty FeatureCollection");
         }
-        throw new Error("Empty FeatureCollection");
+        return parsed as FeatureCollection;
       }
-      return normalizeToFeature(parsed);
+      return wrapAsCollection([normalizeToFeature(parsed)]);
     }
 
     case "esrijson": {
       const parsed = JSON.parse(trimmed);
       const converted = arcgisToGeoJSON(parsed);
-      return normalizeToFeature(converted as Geometry | Feature);
+      return wrapAsCollection([normalizeToFeature(converted as Geometry | Feature)]);
     }
 
     default:
@@ -63,8 +76,7 @@ export interface ConvertedFormats {
   esriJson: string | null;
 }
 
-export function fromGeoJSON(feature: Feature): ConvertedFormats {
-  const geometry = feature.geometry;
+export function fromGeoJSON(fc: FeatureCollection): ConvertedFormats {
   const result: ConvertedFormats = {
     wkt: null,
     wkb: null,
@@ -72,27 +84,35 @@ export function fromGeoJSON(feature: Feature): ConvertedFormats {
     esriJson: null,
   };
 
-  // GeoJSON text (always works)
-  result.geojsonText = JSON.stringify(geometry, null, 2);
+  // GeoJSON text — output the full FeatureCollection
+  result.geojsonText = JSON.stringify(fc, null, 2);
+
+  // For WKT/WKB, merge into a single geometry (GeometryCollection if multiple)
+  const merged = mergeGeometries(fc);
 
   // WKT
   try {
-    result.wkt = geojsonToWkt(geometry);
+    result.wkt = geojsonToWkt(merged);
   } catch (err) {
     console.warn("WKT conversion failed:", err);
   }
 
   // WKB hex
   try {
-    result.wkb = geojsonToWkbHex(geometry);
+    result.wkb = geojsonToWkbHex(merged);
   } catch (err) {
     console.warn("WKB conversion failed:", err);
   }
 
-  // EsriJSON
+  // EsriJSON — convert each feature's geometry separately, output as array if multiple
   try {
-    const esri = geojsonToArcGIS(geometry);
-    result.esriJson = JSON.stringify(esri, null, 2);
+    if (fc.features.length === 1) {
+      const esri = geojsonToArcGIS(fc.features[0].geometry);
+      result.esriJson = JSON.stringify(esri, null, 2);
+    } else {
+      const esriArray = fc.features.map((f) => geojsonToArcGIS(f.geometry));
+      result.esriJson = JSON.stringify(esriArray, null, 2);
+    }
   } catch (err) {
     console.warn("EsriJSON conversion failed:", err);
   }

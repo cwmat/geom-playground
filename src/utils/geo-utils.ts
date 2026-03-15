@@ -1,4 +1,4 @@
-import type { Feature, Geometry, Position } from "geojson";
+import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 import type { LngLatBoundsLike } from "maplibre-gl";
 
 export function bboxToLngLatBounds(
@@ -11,6 +11,7 @@ export function bboxToLngLatBounds(
 }
 
 export interface VertexInfo {
+  /** Path to this vertex: [featureIndex, ...geometryPath] */
   path: number[];
   position: Position;
 }
@@ -33,61 +34,75 @@ function extractFromRing(
   }
 }
 
-export function extractVertices(geometry: Geometry): VertexInfo[] {
-  const result: VertexInfo[] = [];
-
+function extractVerticesFromGeometry(
+  geometry: Geometry,
+  basePath: number[],
+  result: VertexInfo[],
+): void {
   switch (geometry.type) {
     case "Point":
-      extractFromCoords(geometry.coordinates, [0], result);
+      extractFromCoords(geometry.coordinates, [...basePath, 0], result);
       break;
     case "MultiPoint":
     case "LineString":
       for (let i = 0; i < geometry.coordinates.length; i++) {
-        extractFromCoords(geometry.coordinates[i], [i], result);
+        extractFromCoords(geometry.coordinates[i], [...basePath, i], result);
       }
       break;
     case "MultiLineString":
     case "Polygon":
       for (let i = 0; i < geometry.coordinates.length; i++) {
-        extractFromRing(geometry.coordinates[i], [i], result);
+        extractFromRing(geometry.coordinates[i], [...basePath, i], result);
       }
       break;
     case "MultiPolygon":
       for (let i = 0; i < geometry.coordinates.length; i++) {
         for (let j = 0; j < geometry.coordinates[i].length; j++) {
-          extractFromRing(geometry.coordinates[i][j], [i, j], result);
+          extractFromRing(geometry.coordinates[i][j], [...basePath, i, j], result);
         }
       }
       break;
     case "GeometryCollection":
-      // Don't extract from geometry collections for vertex editing
       break;
   }
+}
 
+/** Extract vertices from all features. Path format: [featureIndex, ...geometryPath] */
+export function extractAllVertices(fc: FeatureCollection): VertexInfo[] {
+  const result: VertexInfo[] = [];
+  for (let fi = 0; fi < fc.features.length; fi++) {
+    extractVerticesFromGeometry(fc.features[fi].geometry, [fi], result);
+  }
   return result;
 }
 
-export function updateVertexInGeometry(
-  feature: Feature,
+/** Legacy single-geometry extraction (kept for compatibility) */
+export function extractVertices(geometry: Geometry): VertexInfo[] {
+  const result: VertexInfo[] = [];
+  extractVerticesFromGeometry(geometry, [], result);
+  return result;
+}
+
+function updateVertexInSingleGeometry(
+  geometry: Geometry,
   path: number[],
   newPosition: Position,
-): Feature {
-  const geometry = JSON.parse(JSON.stringify(feature.geometry)) as Geometry;
+): Geometry {
+  const geom = JSON.parse(JSON.stringify(geometry)) as Geometry;
 
-  switch (geometry.type) {
+  switch (geom.type) {
     case "Point":
-      geometry.coordinates = newPosition;
+      geom.coordinates = newPosition;
       break;
     case "MultiPoint":
     case "LineString":
-      geometry.coordinates[path[0]] = newPosition;
+      geom.coordinates[path[0]] = newPosition;
       break;
     case "MultiLineString":
     case "Polygon":
-      geometry.coordinates[path[0]][path[1]] = newPosition;
-      // For polygons, close the ring if first/last vertex is edited
-      if (geometry.type === "Polygon") {
-        const ring = geometry.coordinates[path[0]];
+      geom.coordinates[path[0]][path[1]] = newPosition;
+      if (geom.type === "Polygon") {
+        const ring = geom.coordinates[path[0]];
         if (path[1] === 0) {
           ring[ring.length - 1] = newPosition;
         } else if (path[1] === ring.length - 1) {
@@ -96,10 +111,9 @@ export function updateVertexInGeometry(
       }
       break;
     case "MultiPolygon":
-      geometry.coordinates[path[0]][path[1]][path[2]] = newPosition;
-      // Close the ring if needed
+      geom.coordinates[path[0]][path[1]][path[2]] = newPosition;
       {
-        const ring = geometry.coordinates[path[0]][path[1]];
+        const ring = geom.coordinates[path[0]][path[1]];
         if (path[2] === 0) {
           ring[ring.length - 1] = newPosition;
         } else if (path[2] === ring.length - 1) {
@@ -109,5 +123,34 @@ export function updateVertexInGeometry(
       break;
   }
 
-  return { ...feature, geometry };
+  return geom;
+}
+
+/** Update a vertex in a FeatureCollection. Path: [featureIndex, ...geometryPath] */
+export function updateVertexInCollection(
+  fc: FeatureCollection,
+  path: number[],
+  newPosition: Position,
+): FeatureCollection {
+  const [featureIndex, ...geomPath] = path;
+  const features = fc.features.map((f, i) => {
+    if (i !== featureIndex) return f;
+    return {
+      ...f,
+      geometry: updateVertexInSingleGeometry(f.geometry, geomPath, newPosition),
+    };
+  });
+  return { ...fc, features };
+}
+
+/** Legacy single-feature update */
+export function updateVertexInGeometry(
+  feature: Feature,
+  path: number[],
+  newPosition: Position,
+): Feature {
+  return {
+    ...feature,
+    geometry: updateVertexInSingleGeometry(feature.geometry, path, newPosition),
+  };
 }

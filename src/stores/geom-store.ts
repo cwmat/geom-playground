@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Feature } from "geojson";
+import type { FeatureCollection } from "geojson";
 import type {
   GeosStatus,
   ParseStatus,
@@ -13,13 +13,12 @@ import {
   computeCentroid,
   computeBbox,
   countVertices,
-  getGeometryType,
 } from "@/services/geos-service";
 import { detectFormat } from "@/services/format-detector";
-import { toGeoJSON, fromGeoJSON } from "@/services/format-converter";
+import { toGeoJSON, fromGeoJSON, mergeGeometries } from "@/services/format-converter";
 import type { ConvertedFormats } from "@/services/format-converter";
 import {
-  transformFeature,
+  transformFeatureCollection,
   fetchAndRegisterEpsg,
   isProjectionKnown,
 } from "@/services/projection-service";
@@ -37,7 +36,7 @@ interface GeomStore {
   parseError: string | null;
 
   // Parsed geometry
-  geojson: Feature | null;
+  geojson: FeatureCollection | null;
 
   // Converted representations
   wkt: string | null;
@@ -53,25 +52,25 @@ interface GeomStore {
 
   // Actions
   parseInput: (text: string) => void;
-  updateGeometry: (feature: Feature) => void;
+  updateGeometry: (fc: FeatureCollection) => void;
   setProjection: (epsg: number) => Promise<void>;
   clear: () => void;
 }
 
-function computeProperties(feature: Feature): GeometryProperties {
-  const geometry = feature.geometry;
+function computeProperties(fc: FeatureCollection): GeometryProperties {
+  const merged = mergeGeometries(fc);
   return {
-    geometryType: getGeometryType(geometry),
-    vertexCount: countVertices(geometry),
-    area: computeArea(geometry),
-    length: computeLength(geometry),
-    centroid: computeCentroid(geometry),
-    bbox: computeBbox(geometry),
+    geometryType: merged.type,
+    vertexCount: countVertices(merged),
+    area: computeArea(merged),
+    length: computeLength(merged),
+    centroid: computeCentroid(merged),
+    bbox: computeBbox(merged),
   };
 }
 
-function computeConversions(feature: Feature): ConvertedFormats {
-  return fromGeoJSON(feature);
+function computeConversions(fc: FeatureCollection): ConvertedFormats {
+  return fromGeoJSON(fc);
 }
 
 export const useGeomStore = create<GeomStore>()((set, get) => ({
@@ -135,14 +134,14 @@ export const useGeomStore = create<GeomStore>()((set, get) => ({
     }
 
     try {
-      const feature = toGeoJSON(text, format);
-      const conversions = computeConversions(feature);
-      const properties = computeProperties(feature);
+      const fc = toGeoJSON(text, format);
+      const conversions = computeConversions(fc);
+      const properties = computeProperties(fc);
 
       set({
         parseStatus: "ready",
         parseError: null,
-        geojson: feature,
+        geojson: fc,
         ...conversions,
         properties,
       });
@@ -160,13 +159,13 @@ export const useGeomStore = create<GeomStore>()((set, get) => ({
     }
   },
 
-  updateGeometry: (feature: Feature) => {
+  updateGeometry: (fc: FeatureCollection) => {
     try {
-      const conversions = computeConversions(feature);
-      const properties = computeProperties(feature);
+      const conversions = computeConversions(fc);
+      const properties = computeProperties(fc);
 
       set({
-        geojson: feature,
+        geojson: fc,
         ...conversions,
         properties,
         parseStatus: "ready",
@@ -194,7 +193,7 @@ export const useGeomStore = create<GeomStore>()((set, get) => ({
     }
 
     try {
-      const transformed = transformFeature(geojson, currentEpsg, epsg);
+      const transformed = transformFeatureCollection(geojson, currentEpsg, epsg);
       const conversions = computeConversions(transformed);
       const properties = computeProperties(transformed);
 

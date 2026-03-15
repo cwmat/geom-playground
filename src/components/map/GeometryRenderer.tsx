@@ -1,16 +1,11 @@
 import { Source, Layer } from "@vis.gl/react-maplibre";
-import type { Feature } from "geojson";
+import type { FeatureCollection } from "geojson";
 
 interface GeometryRendererProps {
-  feature: Feature;
+  data: FeatureCollection;
 }
 
-export function GeometryRenderer({ feature }: GeometryRendererProps) {
-  const data = {
-    type: "FeatureCollection" as const,
-    features: [feature],
-  };
-
+export function GeometryRenderer({ data }: GeometryRendererProps) {
   return (
     <Source id="geom-data" type="geojson" data={data}>
       {/* Polygon fill */}

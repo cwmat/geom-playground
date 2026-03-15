@@ -1,5 +1,5 @@
 import proj4 from "proj4";
-import type { Feature, Geometry, Position } from "geojson";
+import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 
 // proj4 includes EPSG:4326 and EPSG:3857 by default.
 // Register a few common UTM zones.
@@ -117,6 +117,17 @@ export function transformFeature(
   return {
     ...feature,
     geometry: transformGeometry(feature.geometry, fromEpsg, toEpsg),
+  };
+}
+
+export function transformFeatureCollection(
+  fc: FeatureCollection,
+  fromEpsg: number,
+  toEpsg: number,
+): FeatureCollection {
+  return {
+    ...fc,
+    features: fc.features.map((f) => transformFeature(f, fromEpsg, toEpsg)),
   };
 }
 

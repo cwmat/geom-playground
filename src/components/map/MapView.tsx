@@ -41,7 +41,7 @@ export function MapView() {
       >
         <NavigationControl position="top-right" />
         <ScaleControl position="bottom-left" />
-        {geojson && <GeometryRenderer feature={geojson} />}
+        {geojson && <GeometryRenderer data={geojson} />}
         {geojson && <VertexEditor />}
       </Map>
 

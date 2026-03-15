@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useMemo } from "react";
 import { Source, Layer, useMap } from "@vis.gl/react-maplibre";
 import type { MapLayerMouseEvent } from "@vis.gl/react-maplibre";
 import { useGeomStore } from "@/stores/geom-store";
-import { extractVertices, updateVertexInGeometry } from "@/utils/geo-utils";
+import { extractAllVertices, updateVertexInCollection } from "@/utils/geo-utils";
 import type { FeatureCollection, Point } from "geojson";
 
 const VERTEX_LAYER_ID = "vertex-points";
@@ -20,7 +20,7 @@ export function VertexEditor() {
   const vertexData = useMemo<FeatureCollection<Point>>(() => {
     if (!geojson) return { type: "FeatureCollection", features: [] };
 
-    const vertices = extractVertices(geojson.geometry);
+    const vertices = extractAllVertices(geojson);
     return {
       type: "FeatureCollection",
       features: vertices.map((v, i) => ({
@@ -68,7 +68,7 @@ export function VertexEditor() {
       if (!draggingRef.current?.active || !geojson) return;
 
       const newPos = [e.lngLat.lng, e.lngLat.lat];
-      const updated = updateVertexInGeometry(
+      const updated = updateVertexInCollection(
         geojson,
         draggingRef.current.path,
         newPos,
