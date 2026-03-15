@@ -11,7 +11,8 @@
       "Bash(ls node_modules/geos-wasm/dist/*.d.ts 2>/dev/null || ls node_modules/geos-wasm/*.d.ts 2>/dev/null || find node_modules/geos-wasm -name \"*.d.ts\" -maxdepth 3 2>/dev/null | head -5)",
       "Bash(npx vite:*)",
       "Bash(ls -la \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" | grep -E \"\\\\.\\(json|ts|mjs|md|rc\\)$|^d\")",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(cd \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" && GITHUB_PAGES=true npm run build 2>&1 | tail -10)"
     ]
   }
 }
