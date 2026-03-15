@@ -12,7 +12,11 @@
       "Bash(npx vite:*)",
       "Bash(ls -la \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" | grep -E \"\\\\.\\(json|ts|mjs|md|rc\\)$|^d\")",
       "Bash(npm run:*)",
-      "Bash(cd \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" && GITHUB_PAGES=true npm run build 2>&1 | tail -10)"
+      "Bash(cd \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" && GITHUB_PAGES=true npm run build 2>&1 | tail -10)",
+      "Bash(cd \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" && rm -rf node_modules package-lock.json && npm install 2>&1 | tail -10)",
+      "Bash(cd \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" && node -e \"const lock = require\\('./package-lock.json'\\); console.log\\(Object.keys\\(lock.packages\\).filter\\(k => k.includes\\('monaco'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(cd \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" && node -e \"const lock = require\\('./package-lock.json'\\); ['dompurify','marked','@types/trusted-types'].forEach\\(p => { const found = Object.keys\\(lock.packages\\).filter\\(k => k.includes\\(p\\)\\); console.log\\(p + ': ' + \\(found.length ? found.join\\(', '\\) : 'MISSING'\\)\\); }\\)\")",
+      "Bash(cd \"C:\\\\Users\\\\chazm\\\\Documents\\\\Projects\\\\wasm-apps\\\\geom-playground\" && rm -rf node_modules && npm ci 2>&1 | tail -5)"
     ]
   }
 }
