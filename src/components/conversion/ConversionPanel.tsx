@@ -4,11 +4,11 @@ import { FormatTab } from "./FormatTab";
 
 type ConvertTab = "wkt" | "wkb" | "geojson" | "esrijson";
 
-const tabs: { key: ConvertTab; label: string }[] = [
-  { key: "wkt", label: "WKT" },
-  { key: "wkb", label: "WKB" },
-  { key: "geojson", label: "GeoJSON" },
-  { key: "esrijson", label: "EsriJSON" },
+const tabs: { key: ConvertTab; label: string; language: string }[] = [
+  { key: "wkt", label: "WKT", language: "plaintext" },
+  { key: "wkb", label: "WKB", language: "plaintext" },
+  { key: "geojson", label: "GeoJSON", language: "json" },
+  { key: "esrijson", label: "EsriJSON", language: "json" },
 ];
 
 export function ConversionPanel() {
@@ -46,6 +46,7 @@ export function ConversionPanel() {
         <FormatTab
           label={tabs.find((t) => t.key === activeTab)!.label}
           content={contentMap[activeTab]}
+          language={tabs.find((t) => t.key === activeTab)!.language}
         />
       </div>
     </div>
